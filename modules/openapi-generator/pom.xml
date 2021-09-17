@@ -230,6 +230,9 @@
                         <link>http://java.sun.com/j2se/1.5.0/docs/api</link>
                     </links>
                     <excludePackageNames/>
+                    <additionalparam>-Xdoclint:none</additionalparam>
+                    <additionalOptions>-Xdoclint:none</additionalOptions>
+                    <additionalJOption>-Xdoclint:none</additionalJOption>
                 </configuration>
             </plugin>
             <plugin>

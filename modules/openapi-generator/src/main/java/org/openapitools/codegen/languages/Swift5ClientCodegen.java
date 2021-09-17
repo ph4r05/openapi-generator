@@ -1141,9 +1141,42 @@ public class Swift5ClientCodegen extends DefaultCodegen implements CodegenConfig
 
         List<CodegenOperation> operations = (List<CodegenOperation>) objectMap.get("operation");
         for (CodegenOperation operation : operations) {
+            boolean hasPage = false;
+            boolean hasCount = false;
+            boolean hasOrder = false;
+
+            final List<CodegenParameter> nonPagingParams = new ArrayList<>();
             for (CodegenParameter cp : operation.allParams) {
                 cp.vendorExtensions.put("x-swift-example", constructExampleCode(cp, modelMaps, new HashSet<String>()));
+                final boolean isCount = cp.isInteger && "count".equals(cp.paramName);
+                final boolean isPage = cp.isInteger && "page".equals(cp.paramName);
+                final boolean isOrder = cp.isEnum && "order".equals(cp.paramName);
+                final boolean isPaging = isCount || isPage || isOrder;
+                cp.vendorExtensions.put("x-swift-is-paging", isPaging);
+
+                hasCount |= isCount;
+                hasPage |= isPage;
+                hasOrder |= isOrder;
+
+                if (!isCount && !isPage){
+                    nonPagingParams.add(cp);
+                }
+
+                if (isOrder) {
+                    cp.dataType = "SortOrder";
+                    cp.isEnum = false;
+                }
             }
+
+            operation.vendorExtensions.put("x-swift-has-paging", hasCount && hasPage);
+            operation.vendorExtensions.put("x-swift-nopaging-params", nonPagingParams);
+            String pagingType = operation.returnType;
+            if (hasCount && hasPage) {
+                pagingType = pagingType.replaceAll("^\\[", "");
+                pagingType = pagingType.replaceAll("\\]$", "");
+            }
+            operation.vendorExtensions.put("x-swift-paging-return", pagingType);
+            operation.vendorExtensions.put("x-swift-paging-hasParams", nonPagingParams.size() > 0);
         }
         return objs;
     }
