@@ -26,6 +26,7 @@ import io.swagger.v3.oas.models.Paths;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.security.*;
@@ -487,6 +488,39 @@ public class DefaultGenerator implements Generator {
                         LOGGER.info("Model {} not generated since it's an alias to array (without property) and `generateAliasAsModel` is set to false (default)", name);
                         continue;
                     }
+
+                    final ArraySchema arrSchema = (ArraySchema) schema;
+                    final Schema subSchema = arrSchema.getItems();
+                    if (ModelUtils.isObjectSchema(subSchema)) {
+                        String origName = name;
+                        String subName = name;
+                        if (subName.endsWith("es")) {
+                            subName = name.substring(0, name.length() - 2);
+                        } else if (subName.endsWith("s")) {
+                            subName = name.substring(0, name.length() - 1);
+                        } else {
+                            subName = name;
+                        }
+
+                        Map<String, Schema> schemaMap = new HashMap<>();
+                        schemaMap.put(subName, subSchema);
+
+                        //Map<String, Object> models = new HashMap<>(); //processModels(config, schemaMap);
+                        Map<String, Object> models = processModels(config, schemaMap);
+                        models.put("classname", config.toModelName(subName));
+                        models.putAll(config.additionalProperties());
+
+                        allProcessedModels.put(subName, models);
+                        config.typeMapping().put(config.toModelName(subName), config.toModelName(subName));
+                        config.typeMapping().put(config.toModelName(subName) + "+null", config.toModelName(subName));
+
+                        subSchema.setType(config.toModelName(subName));
+                        schema.setType(config.toModelName(name));
+                        //schemas.put(subName, subSchema);
+
+                        name = origName + "_list";
+                    }
+                    continue;
                 }
 
                 Map<String, Schema> schemaMap = new HashMap<>();
