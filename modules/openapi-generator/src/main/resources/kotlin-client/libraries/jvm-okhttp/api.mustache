@@ -8,115 +8,98 @@ package {{apiPackage}}
 {{#useCoroutines}}
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.toList
 {{/useCoroutines}}
 {{/doNotUseRxAndCoroutines}}
 import {{packageName}}.infrastructure.ApiClient
+import {{packageName}}.infrastructure.BlockfrostConfig
 import {{packageName}}.infrastructure.ClientException
 import {{packageName}}.infrastructure.ClientError
 import {{packageName}}.infrastructure.ServerException
 import {{packageName}}.infrastructure.ServerError
 import {{packageName}}.infrastructure.MultiValueMap
+import {{packageName}}.infrastructure.PageLister
 import {{packageName}}.infrastructure.RequestConfig
 import {{packageName}}.infrastructure.RequestMethod
 import {{packageName}}.infrastructure.ResponseType
+import {{packageName}}.infrastructure.SortOrder
 import {{packageName}}.infrastructure.Success
 import {{packageName}}.infrastructure.toMultiValue
 
+import {{packageName}}.retrofit.{{classname}} as {{classname}}Retrofit
+
 {{#operations}}
-{{#nonPublicApi}}internal {{/nonPublicApi}}class {{classname}}(basePath: kotlin.String = defaultBasePath) : ApiClient(basePath) {
-    companion object {
-        @JvmStatic
-        val defaultBasePath: String by lazy {
-            System.getProperties().getProperty("{{packageName}}.baseUrl", "{{{basePath}}}")
-        }
+{{#nonPublicApi}}internal {{/nonPublicApi}}{{^nonPublicApi}}open {{/nonPublicApi}}class {{classname}}(config: BlockfrostConfig = BlockfrostConfig.defaultConfig) : ApiClient(config) {
+    val api by lazy {
+        createService({{classname}}Retrofit::class.java)
     }
 
     {{#operation}}
     /**
-    * {{summary}}
-    * {{notes}}
-    {{#allParams}}* @param {{{paramName}}} {{description}} {{^required}}(optional{{#defaultValue}}, default to {{{.}}}{{/defaultValue}}){{/required}}
-    {{/allParams}}* @return {{#returnType}}{{{returnType}}}{{#nullableReturnType}} or null{{/nullableReturnType}}{{/returnType}}{{^returnType}}void{{/returnType}}
-    * @throws UnsupportedOperationException If the API returns an informational or redirection response
-    * @throws ClientException If the API returns a client error response
-    * @throws ServerException If the API returns a server error response
-    */{{#returnType}}
-    @Suppress("UNCHECKED_CAST"){{/returnType}}
+     * {{summary}}
+     * {{notes}}
+     {{#allParams}}* @param {{{paramName}}} {{description}} {{^required}}(optional{{#defaultValue}}, default to {{{.}}}{{/defaultValue}}){{/required}}
+     {{/allParams}}* @return {{#returnType}}{{{returnType}}}{{#nullableReturnType}} or null{{/nullableReturnType}}{{/returnType}}{{^returnType}}void{{/returnType}}
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
     @Throws(UnsupportedOperationException::class, ClientException::class, ServerException::class)
     {{#isDeprecated}}
     @Deprecated(message = "This operation is deprecated.")
     {{/isDeprecated}}
-    {{^doNotUseRxAndCoroutines}}{{#useCoroutines}}suspend {{/useCoroutines}}{{/doNotUseRxAndCoroutines}}fun {{operationId}}({{#allParams}}{{{paramName}}}: {{{dataType}}}{{^required}}?{{/required}}{{^-last}}, {{/-last}}{{/allParams}}) : {{#returnType}}{{{returnType}}}{{#nullableReturnType}}?{{/nullableReturnType}}{{/returnType}}{{^returnType}}Unit{{/returnType}}{{^doNotUseRxAndCoroutines}}{{#useCoroutines}} = withContext(Dispatchers.IO){{/useCoroutines}}{{/doNotUseRxAndCoroutines}} {
+    open {{^doNotUseRxAndCoroutines}}{{#useCoroutines}}suspend {{/useCoroutines}}{{/doNotUseRxAndCoroutines}}fun {{operationId}}(
+    {{#allParams}}{{{paramName}}}: {{{dataType}}}{{^required}}?{{#defaultValue}} = {{.}}{{/defaultValue}}{{^defaultValue}} = null{{/defaultValue}}{{/required}}{{^-last}}, {{/-last}}{{/allParams}}
+    ) : {{#returnType}}{{{returnType}}}{{#nullableReturnType}}?{{/nullableReturnType}}{{#vendorExtensions.x-return-is-nonnullnonlist}}?{{/vendorExtensions.x-return-is-nonnullnonlist}}{{/returnType}}{{^returnType}}Unit{{/returnType}}{{^doNotUseRxAndCoroutines}}{{#useCoroutines}} = withContext(Dispatchers.IO){{/useCoroutines}}{{/doNotUseRxAndCoroutines}} {
         {{#isDeprecated}}
         @Suppress("DEPRECATION")
         {{/isDeprecated}}
-        val localVariableConfig = {{operationId}}RequestConfig({{#allParams}}{{{paramName}}} = {{{paramName}}}{{^-last}}, {{/-last}}{{/allParams}})
+        {{#vendorExtensions.x-has-list-return}}handleListResponse{{/vendorExtensions.x-has-list-return}}{{^vendorExtensions.x-has-list-return}}handleResponse{{/vendorExtensions.x-has-list-return}}(api.{{operationId}}({{#allParams}}{{{paramName}}} = {{vendorExtensions.x-param-call}}{{^-last}}, {{/-last}}{{/allParams}}))
+    }
+    {{#vendorExtensions.x-has-paging}}
 
-        val localVarResponse = request<{{#hasBodyParam}}{{#bodyParams}}{{{dataType}}}{{/bodyParams}}{{/hasBodyParam}}{{^hasBodyParam}}{{^hasFormParams}}Unit{{/hasFormParams}}{{#hasFormParams}}Map<String, Any?>{{/hasFormParams}}{{/hasBodyParam}}, {{{returnType}}}{{^returnType}}Unit{{/returnType}}>(
-            localVariableConfig
-        )
-
-        return{{^doNotUseRxAndCoroutines}}{{#useCoroutines}}@withContext{{/useCoroutines}}{{/doNotUseRxAndCoroutines}} when (localVarResponse.responseType) {
-            ResponseType.Success -> {{#returnType}}(localVarResponse as Success<*>).data as {{{returnType}}}{{#nullableReturnType}}?{{/nullableReturnType}}{{/returnType}}{{^returnType}}Unit{{/returnType}}
-            ResponseType.Informational -> throw UnsupportedOperationException("Client does not support Informational responses.")
-            ResponseType.Redirection -> throw UnsupportedOperationException("Client does not support Redirection responses.")
-            ResponseType.ClientError -> {
-                val localVarError = localVarResponse as ClientError<*>
-                throw ClientException("Client error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
-            }
-            ResponseType.ServerError -> {
-                val localVarError = localVarResponse as ServerError<*>
-                throw ServerException("Server error : ${localVarError.statusCode} ${localVarError.message.orEmpty()}", localVarError.statusCode, localVarResponse)
-            }
+    /**
+    {{#summary}}
+     * {{{.}}}. Fetches all paged records, returns a Flow.{{/summary}}
+     * {{notes}}
+     {{#vendorExtensions.x-nopaging-params}}* parameter {{paramName}}: ({{#isFormParam}}form{{/isFormParam}}{{#isQueryParam}}query{{/isQueryParam}}{{#isPathParam}}path{{/isPathParam}}{{#isHeaderParam}}header{{/isHeaderParam}}{{#isBodyParam}}body{{/isBodyParam}}) {{description}} {{^required}}(optional{{#defaultValue}}, default to {{{.}}}{{/defaultValue}}){{/required}}
+     {{/vendorExtensions.x-nopaging-params}}* parameter batchSize: Number of concurrent requests for page download. If null, config.batchSize is used.
+     * @return {{#returnType}}Flow<{{{returnType}}}{{#nullableReturnType}} or null{{/nullableReturnType}}{{/returnType}}>{{^returnType}}void{{/returnType}}
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Throws(UnsupportedOperationException::class, ClientException::class, ServerException::class, PageListerException::class)
+    open suspend fun {{operationId}}All({{#vendorExtensions.x-paging-hasParams}}
+    {{/vendorExtensions.x-paging-hasParams}}{{#vendorExtensions.x-nopaging-params}}{{paramName}}: {{#isEnum}}{{#isContainer}}{{{dataType}}}{{/isContainer}}{{^isContainer}}{{{datatypeWithEnum}}}_{{operationId}}{{/isContainer}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}{{^required}}? = null{{/required}}{{^-last}}, {{/-last}}{{/vendorExtensions.x-nopaging-params}}{{#vendorExtensions.x-paging-hasParams}},
+    {{/vendorExtensions.x-paging-hasParams}}batchSize: Int? = null,
+    ) : Flow<{{{vendorExtensions.x-paging-return}}}{{^vendorExtensions.x-paging-return}}Void{{/vendorExtensions.x-paging-return}}> {
+        val pager = PageLister<{{{vendorExtensions.x-paging-return}}}{{^vendorExtensions.x-paging-return}}Void{{/vendorExtensions.x-paging-return}}>(concurrentPages = batchSize ?: config.batchSize)
+        return pager.load { count, page ->
+            {{operationId}}({{#allParams}}{{paramName}} = {{paramName}}{{^-last}}, {{/-last}}{{/allParams}})
         }
     }
 
     /**
-    * To obtain the request config of the operation {{operationId}}
-    *
-    {{#allParams}}* @param {{{paramName}}} {{description}} {{^required}}(optional{{#defaultValue}}, default to {{{.}}}{{/defaultValue}}){{/required}}
-    {{/allParams}}* @return RequestConfig
-    */
-    {{#isDeprecated}}
-    @Deprecated(message = "This operation is deprecated.")
-    {{/isDeprecated}}
-    fun {{operationId}}RequestConfig({{#allParams}}{{{paramName}}}: {{{dataType}}}{{^required}}?{{/required}}{{^-last}}, {{/-last}}{{/allParams}}) : RequestConfig<{{#hasBodyParam}}{{#bodyParams}}{{{dataType}}}{{/bodyParams}}{{/hasBodyParam}}{{^hasBodyParam}}{{^hasFormParams}}Unit{{/hasFormParams}}{{#hasFormParams}}Map<String, Any?>{{/hasFormParams}}{{/hasBodyParam}}> {
-        val localVariableBody = {{#hasBodyParam}}{{#bodyParams}}{{{paramName}}}{{/bodyParams}}{{/hasBodyParam}}{{^hasBodyParam}}{{^hasFormParams}}null{{/hasFormParams}}{{#hasFormParams}}mapOf({{#formParams}}"{{{baseName}}}" to {{{paramName}}}{{^-last}}, {{/-last}}{{/formParams}}){{/hasFormParams}}{{/hasBodyParam}}
-        val localVariableQuery: MultiValueMap = {{^hasQueryParams}}mutableMapOf()
-{{/hasQueryParams}}{{#hasQueryParams}}mutableMapOf<kotlin.String, List<kotlin.String>>()
-            .apply {
-                {{#queryParams}}
-                {{^required}}
-                if ({{{paramName}}} != null) {
-                    put("{{baseName}}", {{#isContainer}}toMultiValue({{{paramName}}}.toList(), "{{collectionFormat}}"){{/isContainer}}{{^isContainer}}listOf({{#isDateTime}}parseDateToQueryString({{{paramName}}}){{/isDateTime}}{{#isDate}}parseDateToQueryString({{{paramName}}}){{/isDate}}{{^isDateTime}}{{^isDate}}{{{paramName}}}.toString(){{/isDate}}{{/isDateTime}}){{/isContainer}})
-                }
-                {{/required}}
-                {{#required}}
-                {{#isNullable}}
-                if ({{{paramName}}} != null) {
-                    put("{{baseName}}", {{#isContainer}}toMultiValue({{{paramName}}}.toList(), "{{collectionFormat}}"){{/isContainer}}{{^isContainer}}listOf({{#isDateTime}}parseDateToQueryString({{{paramName}}}){{/isDateTime}}{{#isDate}}parseDateToQueryString({{{paramName}}}){{/isDate}}{{^isDateTime}}{{^isDate}}{{{paramName}}}.toString(){{/isDate}}{{/isDateTime}}){{/isContainer}})
-                }
-                {{/isNullable}}
-                {{^isNullable}}
-                put("{{baseName}}", {{#isContainer}}toMultiValue({{{paramName}}}.toList(), "{{collectionFormat}}"){{/isContainer}}{{^isContainer}}listOf({{#isDateTime}}parseDateToQueryString({{{paramName}}}){{/isDateTime}}{{#isDate}}parseDateToQueryString({{{paramName}}}){{/isDate}}{{^isDateTime}}{{^isDate}}{{{paramName}}}.toString(){{/isDate}}{{/isDateTime}}){{/isContainer}})
-                {{/isNullable}}
-                {{/required}}
-                {{/queryParams}}
-            }
-            {{/hasQueryParams}}
-        val localVariableHeaders: MutableMap<String, String> = mutableMapOf({{#hasFormParams}}"Content-Type" to {{^consumes}}"multipart/form-data"{{/consumes}}{{#consumes.0}}"{{{mediaType}}}"{{/consumes.0}}{{/hasFormParams}})
-        {{#headerParams}}
-        {{{paramName}}}{{^required}}?{{/required}}.apply { localVariableHeaders["{{baseName}}"] = {{#isContainer}}this.joinToString(separator = collectionDelimiter("{{collectionFormat}}")){{/isContainer}}{{^isContainer}}this.toString(){{/isContainer}} }
-        {{/headerParams}}
-
-        return RequestConfig(
-            method = RequestMethod.{{httpMethod}},
-            path = "{{path}}"{{#pathParams}}.replace("{"+"{{baseName}}"+"}", "${{{paramName}}}"){{/pathParams}},
-            query = localVariableQuery,
-            headers = localVariableHeaders,
-            body = localVariableBody
-        )
+     {{#summary}}
+     * {{{.}}}. Fetches all paged records, returns as a list.{{/summary}}
+     * {{notes}}
+     {{#vendorExtensions.x-nopaging-params}}* parameter {{paramName}}: ({{#isFormParam}}form{{/isFormParam}}{{#isQueryParam}}query{{/isQueryParam}}{{#isPathParam}}path{{/isPathParam}}{{#isHeaderParam}}header{{/isHeaderParam}}{{#isBodyParam}}body{{/isBodyParam}}) {{description}} {{^required}}(optional{{#defaultValue}}, default to {{{.}}}{{/defaultValue}}){{/required}}
+     {{/vendorExtensions.x-nopaging-params}}* parameter batchSize: Number of concurrent requests for page download. If null, config.batchSize is used.
+     * @return {{#returnType}}List<{{{returnType}}}{{#nullableReturnType}} or null{{/nullableReturnType}}{{/returnType}}>{{^returnType}}void{{/returnType}}
+     * @throws UnsupportedOperationException If the API returns an informational or redirection response
+     * @throws ClientException If the API returns a client error response
+     * @throws ServerException If the API returns a server error response
+     */
+    @Throws(UnsupportedOperationException::class, ClientException::class, ServerException::class, PageListerException::class)
+    open suspend fun {{operationId}}AllList({{#vendorExtensions.x-paging-hasParams}}
+    {{/vendorExtensions.x-paging-hasParams}}{{#vendorExtensions.x-nopaging-params}}{{paramName}}: {{#isEnum}}{{#isContainer}}{{{dataType}}}{{/isContainer}}{{^isContainer}}{{{datatypeWithEnum}}}_{{operationId}}{{/isContainer}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}{{^required}}? = null{{/required}}{{^-last}}, {{/-last}}{{/vendorExtensions.x-nopaging-params}}{{#vendorExtensions.x-paging-hasParams}},
+    {{/vendorExtensions.x-paging-hasParams}}batchSize: Int? = null,
+    ) : List<{{{vendorExtensions.x-paging-return}}}{{^vendorExtensions.x-paging-return}}Void{{/vendorExtensions.x-paging-return}}> {
+        return {{operationId}}All({{#vendorExtensions.x-nopaging-params}}{{paramName}} = {{paramName}}{{^-last}}, {{/-last}}{{/vendorExtensions.x-nopaging-params}}{{#vendorExtensions.x-nopaging-params-nonempty}}, {{/vendorExtensions.x-nopaging-params-nonempty}}batchSize = batchSize).toList()
     }
+    {{/vendorExtensions.x-has-paging}}
 
     {{/operation}}
 }

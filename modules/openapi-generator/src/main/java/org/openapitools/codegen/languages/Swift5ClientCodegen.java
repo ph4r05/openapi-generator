@@ -1169,7 +1169,9 @@ public class Swift5ClientCodegen extends DefaultCodegen implements CodegenConfig
             }
 
             operation.vendorExtensions.put("x-swift-has-paging", hasCount && hasPage);
+            operation.vendorExtensions.put("x-has-paging", hasCount && hasPage);
             operation.vendorExtensions.put("x-swift-nopaging-params", nonPagingParams);
+            operation.vendorExtensions.put("x-nopaging-params", nonPagingParams);
             String pagingType = operation.returnType;
             if (hasCount && hasPage) {
                 pagingType = pagingType.replaceAll("^\\[", "");

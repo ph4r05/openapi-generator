@@ -494,10 +494,16 @@ public class DefaultGenerator implements Generator {
                     if (ModelUtils.isObjectSchema(subSchema)) {
                         String origName = name;
                         String subName = name;
-                        if (subName.endsWith("es")) {
-                            subName = name.substring(0, name.length() - 2);
+                        if (subName.endsWith("ses")) {
+                            final String subNameCand = name.substring(0, name.length() - 2);
+                            if (!schemas.containsKey(subNameCand)) {
+                                subName = subNameCand;
+                            }
                         } else if (subName.endsWith("s")) {
-                            subName = name.substring(0, name.length() - 1);
+                            final String subNameCand = name.substring(0, name.length() - 1);
+                            if (!schemas.containsKey(subNameCand)) {
+                                subName = subNameCand;
+                            }
                         } else {
                             subName = name;
                         }
@@ -515,7 +521,10 @@ public class DefaultGenerator implements Generator {
                         config.typeMapping().put(config.toModelName(subName) + "+null", config.toModelName(subName));
 
                         subSchema.setType(config.toModelName(subName));
-                        schema.setType(config.toModelName(name));
+
+                        // For SWIFT: enable this, for Kotlin, disable.
+                        //schema.setType(config.toModelName(name));
+
                         //schemas.put(subName, subSchema);
 
                         name = origName + "_list";

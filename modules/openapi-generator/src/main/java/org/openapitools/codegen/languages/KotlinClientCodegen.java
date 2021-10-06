@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -342,6 +343,9 @@ public class KotlinClientCodegen extends AbstractKotlinCodegen {
         }
 
         commonSupportingFiles();
+        
+        // Force, setting param does not work :/
+        //library = JVM_RETROFIT2;
 
         switch (getLibrary()) {
             case JVM_OKHTTP3:
@@ -686,6 +690,57 @@ public class KotlinClientCodegen extends AbstractKotlinCodegen {
                         }
                     }
                 }
+
+                boolean hasPage = false;
+                boolean hasCount = false;
+                boolean hasOrder = false;
+
+                final List<CodegenParameter> nonPagingParams = new ArrayList<>();
+                for (CodegenParameter cp : operation.allParams) {
+                    final boolean isCount = cp.isInteger && "count".equals(cp.paramName);
+                    final boolean isPage = cp.isInteger && "page".equals(cp.paramName);
+                    final boolean isOrder = cp.isEnum && "order".equals(cp.paramName);
+                    final boolean isPaging = isCount || isPage || isOrder;
+                    cp.vendorExtensions.put("x-is-paging", isPaging);
+                    cp.vendorExtensions.put("x-is-cp", isCount || isPage);
+                    cp.vendorExtensions.put("x-param-call", !isOrder ? cp.paramName : cp.paramName + ((!cp.required) ? "?" : "") + ".toString()");
+
+                    hasCount |= isCount;
+                    hasPage |= isPage;
+                    hasOrder |= isOrder;
+
+                    if (!isCount && !isPage){
+                        nonPagingParams.add(cp);
+                    }
+
+                    if (isOrder) {
+                        cp.dataType = "SortOrder";
+                        cp.isEnum = false;
+                    }
+
+                    if (isOrder || isCount || isPage){
+                        cp.defaultValue = "null";
+                        cp.isNullable = true;
+                    }
+                }
+
+                final boolean returnIsList = operation.returnType != null && operation.returnType.startsWith("kotlin.collections.List<");
+                final boolean returnIsNullable = operation.returnType != null && operation.returnType.endsWith("?");
+                final boolean returnIsNotNullableList = operation.returnType != null && !returnIsList && !returnIsNullable;
+                operation.vendorExtensions.put("x-has-list-return", returnIsList);
+                operation.vendorExtensions.put("x-return-is-nullable", returnIsNullable);
+                operation.vendorExtensions.put("x-return-is-nonnullnonlist", returnIsNotNullableList);
+                operation.vendorExtensions.put("x-has-paging", hasCount && hasPage);
+                operation.vendorExtensions.put("x-nopaging-params", nonPagingParams);
+                operation.vendorExtensions.put("x-nopaging-params-nonempty", !nonPagingParams.isEmpty());
+                String pagingType = operation.returnType;
+                if (hasCount && hasPage) {
+                    pagingType = pagingType.replaceAll("^kotlin\\.collections\\.List<", "");
+                    pagingType = pagingType.replaceAll(">$", "");
+                }
+                operation.vendorExtensions.put("x-paging-return", pagingType);
+                operation.vendorExtensions.put("x-paging-hasParams", nonPagingParams.size() > 0);
+
             }
         }
         return operations;
