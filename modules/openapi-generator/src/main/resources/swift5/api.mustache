@@ -234,14 +234,14 @@ extension {{projectName}}API {
     open func {{operationId}}({{#hasParams}}
     {{/hasParams}}{{#allParams}}{{paramName}}: {{#isEnum}}{{#isContainer}}{{{dataType}}}{{/isContainer}}{{^isContainer}}{{{datatypeWithEnum}}}_{{operationId}}{{/isContainer}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}{{^required}}? = nil{{/required}}{{^-last}}, {{/-last}}{{/allParams}}{{#hasParams}},
     {{/hasParams}}apiResponseQueue: DispatchQueue? = nil, {{#hasParams}}
-    {{/hasParams}}completion: @escaping (_ result: Swift.Result<{{{returnType}}}{{#returnType}}{{#isResponseOptional}}?{{/isResponseOptional}}{{/returnType}}{{^returnType}}Void{{/returnType}}, ErrorResponse>) -> Void
+    {{/hasParams}}completion: @escaping (_ result: Swift.Result<{{{returnType}}}{{#returnType}}{{#isResponseOptional}}?{{/isResponseOptional}}{{/returnType}}{{^returnType}}Void{{/returnType}}, Error>) -> Void
     ) -> APIRequest {
         {{operationId}}WithRequestBuilder({{#allParams}}{{paramName}}: {{paramName}}{{^-last}}, {{/-last}}{{/allParams}})
                 .execute(apiResponseQueue ?? config.apiResponseQueue) { result -> Void in
             switch result {
             {{#returnType}}
             case let .success(response):
-                completion(.success(response.body))
+                completion(.success(response.body!))
             {{/returnType}}
             {{^returnType}}
             case .success:
@@ -252,6 +252,7 @@ extension {{projectName}}API {
             }
         }
     }{{#vendorExtensions.x-swift-has-paging}}
+
     /**
     {{#summary}}
     {{{.}}}. Fetches all paged records.
@@ -267,15 +268,55 @@ extension {{projectName}}API {
      {{/vendorExtensions.x-swift-paging-hasParams}}batchSize: Int? = nil, {{#vendorExtensions.x-swift-paging-hasParams}}
      {{/vendorExtensions.x-swift-paging-hasParams}}completion: @escaping (_ result: Swift.Result<{{{returnType}}}{{^returnType}}Void{{/returnType}}, Error>) -> Void
      ) -> APIRequest {
-            let loader = PageLoader<{{{vendorExtensions.x-swift-paging-return}}}{{^vendorExtensions.x-swift-paging-return}}Void{{/vendorExtensions.x-swift-paging-return}}>(batchSize: batchSize ?? config.batchSize)
-            loader.loadAll({ (count, page, compl) in
-                let _ = self.{{operationId}}({{#allParams}}{{paramName}}: {{paramName}}{{^-last}}, {{/-last}}{{/allParams}}, apiResponseQueue: apiResponseQueue, completion: compl)
-            }, completion: { compl in
-                completion(compl)
-            })
-            return APILoaderRequest(loader: loader)
-        }
+        let loader = PageLoader<{{{vendorExtensions.x-swift-paging-return}}}{{^vendorExtensions.x-swift-paging-return}}Void{{/vendorExtensions.x-swift-paging-return}}>(batchSize: batchSize ?? config.batchSize)
+        loader.loadAll({ (count, page, compl) in
+            let _ = self.{{operationId}}({{#allParams}}{{paramName}}: {{paramName}}{{^-last}}, {{/-last}}{{/allParams}}, apiResponseQueue: apiResponseQueue, completion: compl)
+        }, completion: { compl in
+            completion(compl)
+        })
+        return APILoaderRequest(loader: loader)
+    }
     {{/vendorExtensions.x-swift-has-paging}}
+
+    /**
+     {{#summary}}
+     {{{.}}}
+     {{/summary}}{{#allParams}}
+     - parameter {{paramName}}: ({{#isFormParam}}form{{/isFormParam}}{{#isQueryParam}}query{{/isQueryParam}}{{#isPathParam}}path{{/isPathParam}}{{#isHeaderParam}}header{{/isHeaderParam}}{{#isBodyParam}}body{{/isBodyParam}}) {{description}} {{^required}}(optional{{#defaultValue}}, default to {{{.}}}{{/defaultValue}}){{/required}}{{/allParams}}
+     - returns: {{{returnType}}}{{#returnType}}{{#isResponseOptional}}?{{/isResponseOptional}}{{/returnType}}{{^returnType}}Void{{/returnType}}
+     */
+    {{#isDeprecated}}
+    @available(*, deprecated, message: "This operation is deprecated.")
+    {{/isDeprecated}}
+    @available(macOS 12.0, iOS 15.0, tvOS 15.0, watchOS 8.0, *)
+    {{#nonPublicApi}}internal{{/nonPublicApi}}{{^nonPublicApi}}open{{/nonPublicApi}} func {{operationId}}Async(
+    {{#allParams}}{{paramName}}: {{#isEnum}}{{#isContainer}}{{{dataType}}}{{/isContainer}}{{^isContainer}}{{{datatypeWithEnum}}}_{{operationId}}{{/isContainer}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}{{^required}}? = nil{{/required}}{{^-last}}, {{/-last}}{{/allParams}}
+    ) async throws{{#returnType}} -> {{{returnType}}}{{#returnType}}{{#isResponseOptional}}?{{/isResponseOptional}}{{/returnType}}{{/returnType}} {
+        try await asyncWrapper { completion in
+            {{operationId}}WithRequestBuilder({{#allParams}}{{paramName}}: {{paramName}}{{^-last}}, {{/-last}}{{/allParams}}).execute { result in completion(result) }
+        }
+    }{{#vendorExtensions.x-swift-has-paging}}
+
+    /**
+    {{#summary}}
+    {{{.}}}. Fetches all paged records.
+    {{/summary}}{{#vendorExtensions.x-swift-nopaging-params}}
+     - parameter {{paramName}}: ({{#isFormParam}}form{{/isFormParam}}{{#isQueryParam}}query{{/isQueryParam}}{{#isPathParam}}path{{/isPathParam}}{{#isHeaderParam}}header{{/isHeaderParam}}{{#isBodyParam}}body{{/isBodyParam}}) {{description}} {{^required}}(optional{{#defaultValue}}, default to {{{.}}}{{/defaultValue}}){{/required}}{{/vendorExtensions.x-swift-nopaging-params}}
+     - parameter apiResponseQueue: The queue on which api response is dispatched.
+     - parameter batchSize: Number of concurrent requests for page download. If nil, config.batchSize is used.
+     */
+     open func {{operationId}}AllAsync({{#vendorExtensions.x-swift-paging-hasParams}}
+     {{/vendorExtensions.x-swift-paging-hasParams}}{{#vendorExtensions.x-swift-nopaging-params}}{{paramName}}: {{#isEnum}}{{#isContainer}}{{{dataType}}}{{/isContainer}}{{^isContainer}}{{{datatypeWithEnum}}}_{{operationId}}{{/isContainer}}{{/isEnum}}{{^isEnum}}{{{dataType}}}{{/isEnum}}{{^required}}? = nil{{/required}}{{^-last}}, {{/-last}}{{/vendorExtensions.x-swift-nopaging-params}}{{#vendorExtensions.x-swift-paging-hasParams}},
+     {{/vendorExtensions.x-swift-paging-hasParams}}apiResponseQueue: DispatchQueue? = nil, {{#vendorExtensions.x-swift-paging-hasParams}}
+     {{/vendorExtensions.x-swift-paging-hasParams}}batchSize: Int? = nil
+     ) async throws -> [{{{vendorExtensions.x-swift-paging-return}}}]{{^vendorExtensions.x-swift-paging-return}}Void{{/vendorExtensions.x-swift-paging-return}} {
+        let loader = PageLoader<{{{vendorExtensions.x-swift-paging-return}}}{{^vendorExtensions.x-swift-paging-return}}Void{{/vendorExtensions.x-swift-paging-return}}>(batchSize: batchSize ?? config.batchSize)
+        return try await loader.loadAllAsync({ (count, page, compl) in
+            let _ = self.{{operationId}}({{#allParams}}{{paramName}}: {{paramName}}{{^-last}}, {{/-last}}{{/allParams}}, apiResponseQueue: apiResponseQueue, completion: compl)
+        })
+    }
+    {{/vendorExtensions.x-swift-has-paging}}
+
 {{/useResult}}
 {{#useVapor}}
 
